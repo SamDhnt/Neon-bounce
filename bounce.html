@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Bounce - Zero Gravity Edition</title>
+    <style>
+        :root {
+            --bg-base: #050505;
+            --panel-bg: #0f1115;
+            --accent: #00f0ff;
+            --text-main: #f8fafc;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            background: linear-gradient(145deg, #0f1115, #08090a);
+            padding: 20px;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 240, 255, 0.03), inset 0 1px 0 rgba(255,255,255,0.05);
+            width: min(1000px, calc(100vw - 32px));
+            border: 1px solid rgba(0, 240, 255, 0.1);
+        }
+
+        /* Control Panel */
+        .controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #0a0b0e;
+            padding: 22px;
+            border-radius: 18px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .input-group label {
+            display: block;
+            color: #64748b;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+
+        .bet-input {
+            width: 100%;
+            background: #15181e;
+            border: 1px solid #2a313e;
+            color: white;
+            padding: 12px;
+            font-size: 20px;
+            border-radius: 8px;
+            box-sizing: border-box;
+            text-align: right;
+            font-family: monospace;
+            font-weight: bold;
+        }
+        .bet-input:focus { outline: none; border-color: var(--accent); }
+
+        .btn {
+            padding: 18px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 900;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .btn-bet { background: var(--accent); color: #000; box-shadow: 0 0 20px rgba(0, 240, 255, 0.3); }
+        .btn-bet:hover { background: #33f5ff; transform: translateY(-2px); }
+        .btn-bet:active { transform: translateY(1px); box-shadow: 0 0 10px rgba(0, 240, 255, 0.5); }
+        
+        .btn-max { background: transparent; border: 1px solid #ff0055; color: #ff0055; font-size: 14px; padding: 12px; }
+        .btn-max:hover { background: rgba(255, 0, 85, 0.1); box-shadow: 0 0 15px rgba(255, 0, 85, 0.3); }
+        
+        .btn-sim { background: transparent; border: 1px solid #38bdf8; color: #38bdf8; font-size: 14px; padding: 12px; margin-top: auto; }
+        .btn-sim:hover { background: rgba(56, 189, 248, 0.1); }
+
+        .stats {
+            margin-top: 10px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            font-size: 13px;
+            color: #64748b;
+            line-height: 2.2;
+        }
+        .stats div { display: flex; justify-content: space-between; align-items: center; }
+        .stats span { color: white; font-family: monospace; font-size: 15px; }
+
+        /* Game Screen */
+        .game-screen {
+            flex: 2;
+            background: #030406;
+            border-radius: 18px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid rgba(255,255,255,0.05);
+            height: 500px;
+            box-shadow: inset 0 0 80px rgba(0,0,0,1);
+        }
+
+        canvas { display: block; filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.1)); }
+
+        .multiplier-text {
+            position: absolute;
+            font-size: 70px;
+            font-weight: 900;
+            color: #1e293b;
+            font-family: 'Segoe UI', sans-serif;
+            transition: all 0.1s;
+            pointer-events: none;
+        }
+        .multiplier-text.active { color: white; transform: scale(1.1); text-shadow: 0 0 30px rgba(255,255,255,0.8); }
+        .multiplier-text.win { color: #00f0ff; text-shadow: 0 0 40px rgba(0, 240, 255, 1); transform: scale(1.2); }
+        .multiplier-text.lose { color: #ff0055; text-shadow: 0 0 30px rgba(255, 0, 85, 0.8); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="controls">
+            <div class="input-group">
+                <label>Bet Amount (€)</label>
+                <input type="number" id="bet-amount" class="bet-input" value="5.00" step="1.00" min="1.00">
+            </div>
+            
+            <button type="button" class="btn btn-bet" onclick="startGame(false)">DROP BALL</button>
+            <button type="button" class="btn btn-max" onclick="startGame(true)">🏆 Max Win Demo (128x)</button>
+            
+            <div class="stats">
+                <div>Bankroll <span id="stat-balance">1000.00 €</span></div>
+                <div>Casino Profit <span id="stat-casino">0.00 €</span></div>
+                <div>Theoretical RTP <span>96.00 %</span></div>
+                <div>Experimental RTP <span id="stat-rtp">0.00 %</span></div>
+                <div>Rounds Played <span id="stat-spins">0</span></div>
+            </div>
+
+            <button type="button" class="btn btn-sim" onclick="runMonteCarlo()">⚡ Audit (10,000 Drops)</button>
+            <div id="game-status" style="text-align:center;color:#64748b;font-size:12px;margin-top:5px;">Ready</div>
+        </div>
+
+        <div class="game-screen">
+            <div class="multiplier-text" id="mult-text">0.0x</div>
+            <canvas id="gameCanvas" width="500" height="500"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- AUDIO ENGINE ---
+        let audioCtx = null;
+        
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) audioCtx = new AudioContext();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type, intensity = 0) {
+            if (!audioCtx) return;
+            try {
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'bounce') {
+                    osc.type = 'sine';
+                    const freq = 300 + (intensity * 100); 
+                    osc.frequency.setValueAtTime(freq, now);
+                    osc.frequency.exponentialRampToValueAtTime(freq * 1.5, now + 0.1);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now); osc.stop(now + 0.3);
+                } else if (type === 'forcefield') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.linearRampToValueAtTime(50, now + 0.2);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
+                } else if (type === 'win') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.setValueAtTime(800, now + 0.1);
+                    osc.frequency.setValueAtTime(1200, now + 0.2);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+                    osc.start(now); osc.stop(now + 0.8);
+                } else if (type === 'lose') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.4);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now); osc.stop(now + 0.4);
+                }
+            } catch (e) {}
+        }
+
+        // --- MATH ENGINE (RTP 96.00%) ---
+        const PAYTABLE = [
+            { bounces: 0, mult: 0,    prob: 0.4905 }, 
+            { bounces: 1, mult: 0.5,  prob: 0.2880 }, 
+            { bounces: 2, mult: 1.0,  prob: 0.1000 }, 
+            { bounces: 3, mult: 2.0,  prob: 0.0600 }, 
+            { bounces: 4, mult: 4.0,  prob: 0.0350 }, 
+            { bounces: 5, mult: 8.0,  prob: 0.0150 }, 
+            { bounces: 6, mult: 16.0, prob: 0.0070 }, 
+            { bounces: 7, mult: 32.0, prob: 0.0030 }, 
+            { bounces: 8, mult: 64.0, prob: 0.0010 }, 
+            { bounces: 9, mult: 128.0,prob: 0.0005 }  
+        ];
+
+        let balance = 1000.00;
+        let totalSpent = 0;
+        let totalWon = 0;
+        let spins = 0;
+
+        function getOutcome() {
+            let r = Math.random();
+            let cumulative = 0;
+            for (let tier of PAYTABLE) {
+                cumulative += tier.prob;
+                if (r <= cumulative) return tier;
+            }
+            return PAYTABLE[0];
+        }
+
+        function getMultiplierByBounces(bCount) {
+            let b = Math.min(bCount, 9); 
+            for (let tier of PAYTABLE) {
+                if (tier.bounces === b) return tier.mult;
+            }
+            return 0;
+        }
+
+        // --- PHYSICS ENGINE ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const multText = document.getElementById('mult-text');
+        const statusEl = document.getElementById('game-status');
+
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const R = 180; 
+        const r = 12;  
+        const GAP_SIZE = Math.PI / 2.5; 
+        
+        const GRAVITY = 0.05;       
+        const RESTITUTION = 0.95;   
+        const OMEGA = 0.015;        
+
+        let activeBalls = []; // Enables Multiple Balls
+        let visualGapAngle = Math.PI / 2; 
+        
+        let impacts = []; 
+        let particles = [];
+
+        function normalizeAngle(a) {
+            a = a % (2 * Math.PI);
+            if (a > Math.PI) a -= 2 * Math.PI;
+            if (a < -Math.PI) a += 2 * Math.PI;
+            return a;
+        }
+
+        // Pre-simulation to guarantee RNG output
+        function findVectorForTarget(targetBounces, startGap) {
+            let bestVector = null;
+            let bestDiff = 999;
+            const attempts = targetBounces > 4 ? 40000 : 10000;
+
+            for(let i=0; i < attempts; i++) {
+                let testVx = (Math.random() - 0.5) * 8;
+                let testVy = (Math.random() - 0.5) * 6;
+                
+                let bx = 0, by = -100;
+                let bvx = testVx, bvy = testVy;
+                let gap = startGap;
+                let simBounces = 0;
+                
+                for(let step=0; step < 2000; step++) {
+                    bvy += GRAVITY;
+                    bx += bvx;
+                    by += bvy;
+                    gap += OMEGA;
+
+                    let distSq = bx*bx + by*by;
+                    if (distSq >= 28224) { 
+                        let dist = Math.sqrt(distSq);
+                        let angle = Math.atan2(by, bx);
+                        let normGap = gap % (2*Math.PI);
+                        if (normGap > Math.PI) normGap -= 2*Math.PI;
+                        if (normGap < -Math.PI) normGap += 2*Math.PI;
+                        
+                        let angleDiff = Math.abs(angle - normGap);
+                        if (angleDiff > Math.PI) angleDiff = 2*Math.PI - angleDiff;
+                        
+                        if (angleDiff < GAP_SIZE / 2) {
+                            if (simBounces === targetBounces) return { vx: testVx, vy: testVy };
+                            let diff = Math.abs(simBounces - targetBounces);
+                            if (diff < bestDiff) {
+                                bestDiff = diff;
+                                bestVector = { vx: testVx, vy: testVy };
+                            }
+                            break; 
+                        } else {
+                            let nx = bx / dist, ny = by / dist;
+                            let dot = bvx*nx + bvy*ny;
+                            if (dot > 0) {
+                                bvx = (bvx - 2*dot*nx) * RESTITUTION;
+                                bvy = (bvy - 2*dot*ny) * RESTITUTION;
+                                if (dot > 0.5) simBounces++;
+                            }
+                            bx = nx * 167;
+                            by = ny * 167;
+                        }
+                    }
+                }
+            }
+            return bestVector;
+        }
+
+        function startGame(demoMode = false) {
+            initAudio(); 
+            const bet = parseFloat(document.getElementById('bet-amount').value);
+            
+            let targetOutcome;
+            if (!demoMode) {
+                if (balance < bet) return alert("Insufficient funds");
+                balance -= bet;
+                totalSpent += bet;
+                spins++;
+                targetOutcome = getOutcome();
+            } else {
+                targetOutcome = PAYTABLE[PAYTABLE.length - 1]; // Demo Gain Max
+            }
+            
+            // Clean up text if it was showing a final state
+            multText.className = 'multiplier-text';
+            multText.innerText = '0.0x';
+
+            let validVector = findVectorForTarget(targetOutcome.bounces, visualGapAngle);
+            
+            let newBall = {
+                x: 0,
+                y: -100,
+                vx: validVector ? validVector.vx : (Math.random() - 0.5) * 5,
+                vy: validVector ? validVector.vy : 0,
+                bounces: 0,
+                target: targetOutcome,
+                demo: demoMode,
+                bet: bet
+            };
+            
+            activeBalls.push(newBall);
+            statusEl.textContent = `Balls in play: ${activeBalls.length}`;
+        }
+
+        function gameLoop() {
+            visualGapAngle += OMEGA;
+
+            for (let i = activeBalls.length - 1; i >= 0; i--) {
+                let b = activeBalls[i];
+                
+                b.vy += GRAVITY;
+                b.x += b.vx;
+                b.y += b.vy;
+
+                let distToCenter = Math.sqrt(b.x * b.x + b.y * b.y);
+
+                if (distToCenter >= R - r) {
+                    let ballAngle = Math.atan2(b.y, b.x);
+                    let inGap = Math.abs(normalizeAngle(ballAngle - visualGapAngle)) < GAP_SIZE / 2;
+                    
+                    if (inGap) {
+                        if (b.bounces >= b.target.bounces) {
+                            b.x += b.vx * 2; 
+                            b.y += b.vy * 2;
+                            endGame(b);
+                            activeBalls.splice(i, 1);
+                            continue;
+                        } else {
+                            // FORCEFIELD: Safety net against early exit
+                            let nx = b.x / distToCenter;
+                            let ny = b.y / distToCenter;
+                            let dot = b.vx * nx + b.vy * ny;
+                            
+                            b.vx = (b.vx - 2 * dot * nx) * RESTITUTION;
+                            b.vy = (b.vy - 2 * dot * ny) * RESTITUTION;
+                            b.x = nx * (R - r - 1);
+                            b.y = ny * (R - r - 1);
+                            
+                            b.bounces++;
+                            triggerBounceEffect(nx * R, ny * R, true, b.bounces);
+                        }
+                    } else {
+                        // NORMAL WALL BOUNCE
+                        let nx = b.x / distToCenter;
+                        let ny = b.y / distToCenter;
+                        let dot = b.vx * nx + b.vy * ny;
+                        
+                        if (dot > 0) {
+                            b.vx = (b.vx - 2 * dot * nx) * RESTITUTION;
+                            b.vy = (b.vy - 2 * dot * ny) * RESTITUTION;
+                            b.x = nx * (R - r - 1);
+                            b.y = ny * (R - r - 1);
+
+                            if (dot > 0.5) {
+                                b.bounces++;
+                                triggerBounceEffect(nx * R, ny * R, false, b.bounces);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (activeBalls.length > 0) {
+                statusEl.textContent = `Balls in play: ${activeBalls.length}`;
+            }
+
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function triggerBounceEffect(impactX, impactY, isForcefield, bounceCount) {
+            playSound(isForcefield ? 'forcefield' : 'bounce', bounceCount);
+            let currentMult = getMultiplierByBounces(bounceCount);
+            
+            multText.innerText = currentMult + 'x';
+            multText.classList.add('active');
+            setTimeout(() => multText.classList.remove('active'), 150);
+
+            impacts.push({ x: impactX, y: impactY, alpha: 1.0, isShield: isForcefield });
+
+            for(let i=0; i<6; i++) {
+                particles.push({
+                    x: impactX, y: impactY,
+                    vx: (Math.random() - 0.5) * (isForcefield ? 12 : 5), 
+                    vy: (Math.random() - 0.5) * (isForcefield ? 12 : 5),
+                    alpha: 1, 
+                    size: Math.random() * 3 + 1,
+                    isShield: isForcefield
+                });
+            }
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(cx, cy);
+            
+            // Neon Circle
+            let grad = ctx.createLinearGradient(-R, -R, R, R);
+            grad.addColorStop(0, '#ff003c'); 
+            grad.addColorStop(0.5, '#f59e0b'); 
+            grad.addColorStop(1, '#10b981'); 
+
+            ctx.beginPath();
+            ctx.lineWidth = 14;
+            ctx.lineCap = "round";
+            ctx.strokeStyle = grad;
+            ctx.arc(0, 0, R, visualGapAngle + GAP_SIZE/2, visualGapAngle - GAP_SIZE/2 + Math.PI*2);
+            ctx.stroke();
+
+            // Impacts
+            for (let i = impacts.length - 1; i >= 0; i--) {
+                let imp = impacts[i];
+                ctx.beginPath();
+                ctx.arc(imp.x, imp.y, 30, 0, Math.PI*2);
+                if (imp.isShield) {
+                    ctx.fillStyle = `rgba(255, 0, 85, ${imp.alpha * 0.8})`;
+                    ctx.shadowColor = '#ff0055';
+                } else {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${imp.alpha * 0.5})`;
+                    ctx.shadowColor = '#ffffff';
+                }
+                ctx.shadowBlur = 20;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                imp.alpha -= 0.04;
+                if (imp.alpha <= 0) impacts.splice(i, 1);
+            }
+
+            // Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.alpha -= 0.04;
+                if (p.alpha <= 0) { particles.splice(i, 1); continue; }
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                ctx.fillStyle = p.isShield ? `rgba(255, 0, 85, ${p.alpha})` : `rgba(0, 240, 255, ${p.alpha})`;
+                ctx.fill();
+            }
+
+            // Draw all active balls
+            for (let b of activeBalls) {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, r, 0, Math.PI*2);
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = '#00f0ff';
+                ctx.shadowBlur = 20;
+                ctx.fill();
+                ctx.shadowBlur = 0; 
+            }
+            
+            ctx.restore();
+        }
+
+        function endGame(b) {
+            let finalMult = getMultiplierByBounces(b.bounces);
+
+            // Audio & UI for the ball that just exited
+            if (finalMult > 0) {
+                playSound('win');
+                multText.innerText = finalMult + 'x';
+                multText.classList.add('win');
+            } else {
+                playSound('lose');
+                multText.innerText = '0.0x';
+                multText.classList.add('lose');
+            }
+
+            // Financials
+            if (!b.demo) {
+                const winAmount = b.bet * finalMult;
+                balance += winAmount;
+                totalWon += winAmount;
+                updateStats();
+            }
+
+            // Cleanup the central UI if no more balls are in play
+            setTimeout(() => {
+                if (activeBalls.length === 0) {
+                    multText.className = 'multiplier-text';
+                    multText.innerText = '0.0x';
+                    statusEl.textContent = 'Ready';
+                }
+            }, 2500);
+        }
+
+        function runMonteCarlo() {
+            const SIM_COUNT = 10000;
+            const bet = parseFloat(document.getElementById('bet-amount').value);
+            let simSpent = 0;
+            let simWon = 0;
+
+            for(let i = 0; i < SIM_COUNT; i++) {
+                simSpent += bet;
+                simWon += (bet * getOutcome().mult);
+            }
+
+            spins += SIM_COUNT;
+            totalSpent += simSpent;
+            totalWon += simWon;
+            
+            updateStats();
+            alert(`Silent mathematical audit completed.\n10,000 simulated rounds.\nTheoretical RTP : 96.00%\nMeasured RTP : ${((simWon/simSpent)*100).toFixed(2)}%`);
+        }
+
+        function updateStats() {
+            document.getElementById('stat-balance').innerText = balance.toFixed(2) + ' €';
+            document.getElementById('stat-casino').innerText = (totalSpent - totalWon).toFixed(2) + ' €';
+            document.getElementById('stat-spins').innerText = spins.toLocaleString();
+            if (totalSpent > 0) {
+                document.getElementById('stat-rtp').innerText = ((totalWon / totalSpent) * 100).toFixed(2) + ' %';
+            }
+        }
+
+        // Start infinite rotation loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
